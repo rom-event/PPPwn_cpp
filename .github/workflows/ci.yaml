@@ -33,6 +33,8 @@ jobs:
           - { target: arm-linux-musleabi, os: ubuntu-latest, strip: "llvm-strip", upx: "upx --overlay=strip",
               cmake: "-DUSE_SYSTEM_PCAP=OFF -DZIG_COMPILE_OPTION='-mcpu=cortex_a7'", name: "(cortex_a7)" }
           - { target: arm-linux-musleabi, os: ubuntu-latest, strip: "llvm-strip", upx: "upx --overlay=strip",
+              cmake: "-DUSE_SYSTEM_PCAP=OFF -DZIG_COMPILE_OPTION='-mcpu=cortex_a5'", name: "(cortex_a5)" }
+          - { target: arm-linux-musleabi, os: ubuntu-latest, strip: "llvm-strip", upx: "upx --overlay=strip",
               cmake: "-DUSE_SYSTEM_PCAP=OFF -DZIG_COMPILE_OPTION='-mcpu=mpcorenovfp'", name: "(mpcorenovfp)" }
           - { target: arm-linux-musleabi, os: ubuntu-latest, strip: "llvm-strip", upx: "upx --overlay=strip",
               cmake: "-DUSE_SYSTEM_PCAP=OFF -DZIG_COMPILE_OPTION='-mcpu=arm1176jzf_s'", name: "(pi_zero_w)" }
