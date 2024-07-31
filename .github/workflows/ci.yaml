@@ -28,26 +28,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { target: x86_64-macos-none,  os: macos-13     , strip: "strip",      upx: "ls" }
-          - { target: aarch64-macos-none, os: macos-14     , strip: "strip",      upx: "ls" }
-          - { target: x86_64-windows-gnu, os: ubuntu-latest, strip: "llvm-strip", upx: "upx --lzma",
-              cmake: "-DUSE_SYSTEM_PCAP=OFF -DPacket_ROOT=/tmp/sdk", ext: ".exe" }
-          - { target: x86-windows-gnu,    os: ubuntu-latest, strip: "llvm-strip", upx: "upx --lzma",
-              cmake: "-DUSE_SYSTEM_PCAP=OFF -DPacket_ROOT=/tmp/sdk86", ext: ".exe" }
-          - { target: aarch64-windows-gnu,    os: ubuntu-latest, strip: "llvm-strip", upx: "ls",
-              cmake: "-DUSE_SYSTEM_PCAP=OFF -DPacket_ROOT=/tmp/sdkarm", ext: ".exe" }
-          - { target: x86_64-linux-musl,  os: ubuntu-latest, strip: "llvm-strip", upx: "upx --lzma",
-              cmake: "-DUSE_SYSTEM_PCAP=OFF" }
           - { target: aarch64-linux-musl, os: ubuntu-latest, strip: "llvm-strip", upx: "upx --lzma",
               cmake: "-DUSE_SYSTEM_PCAP=OFF" }
+          - { target: arm-linux-musleabi, os: ubuntu-latest, strip: "llvm-strip", upx: "upx --lzma",
+              cmake: "-DUSE_SYSTEM_PCAP=OFF -DZIG_COMPILE_OPTION='-mcpu=cortex_a5'", name: "(cortex_a5)" }              
           - { target: arm-linux-musleabi, os: ubuntu-latest, strip: "llvm-strip", upx: "upx --lzma",
               cmake: "-DUSE_SYSTEM_PCAP=OFF -DZIG_COMPILE_OPTION='-mcpu=cortex_a7'", name: "(cortex_a7)" }
           - { target: arm-linux-musleabi, os: ubuntu-latest, strip: "llvm-strip", upx: "upx --lzma",
               cmake: "-DUSE_SYSTEM_PCAP=OFF -DZIG_COMPILE_OPTION='-mcpu=mpcorenovfp'", name: "(mpcorenovfp)" }
           - { target: arm-linux-musleabi, os: ubuntu-latest, strip: "llvm-strip", upx: "upx --lzma",
               cmake: "-DUSE_SYSTEM_PCAP=OFF -DZIG_COMPILE_OPTION='-mcpu=arm1176jzf_s'", name: "(pi_zero_w)" }
-          - { target: mipsel-linux-musl,  os: ubuntu-latest, strip: "llvm-strip", upx: "upx --lzma",
-              cmake: "-DUSE_SYSTEM_PCAP=OFF -DZIG_COMPILE_OPTION='-msoft-float'" }
+
     steps:
       - uses: actions/checkout@v4
 
@@ -61,71 +52,16 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get install llvm --no-install-recommends
 
-      - name: Download NPCAP SDK
-        if: contains(matrix.target, 'windows')
-        run: |
-          wget https://npcap.com/dist/npcap-sdk-1.13.zip -O /tmp/sdk.zip
-          unzip /tmp/sdk.zip -d /tmp/sdk
-          mkdir -p /tmp/sdk/lib/x64
-          mkdir -p /tmp/sdk86/lib
-          mkdir -p /tmp/sdkarm/lib
-          cp /tmp/sdk/Lib/x64/*lib /tmp/sdk/lib/x64
-          cp /tmp/sdk/Lib/x64/*lib /tmp/sdk/lib
-          cp /tmp/sdk/Lib/*lib /tmp/sdk86/lib
-          cp -r /tmp/sdk/Include /tmp/sdk86
-          cp /tmp/sdk/Lib/ARM64/*lib /tmp/sdkarm/lib
-          cp -r /tmp/sdk/Include /tmp/sdkarm
-
       - name: Build executable
         run: |
           sudo rm -rf /usr/lib/x86_64-linux-gnu/pkgconfig/openssl.pc
           cmake -B build -DCMAKE_BUILD_TYPE=MinSizeRel -DZIG_TARGET=${{ matrix.target }} ${{ matrix.cmake }}
           cmake --build build -t pppwn -- -j$(nproc)
           ${{ matrix.strip }} build/pppwn${{ matrix.ext }}
-          ${{ matrix.upx }} build/pppwn${{ matrix.ext }}
-          cd build && tar -czvf pppwn.tar.gz pppwn${{ matrix.ext }}
+           cd build && tar -czvf pppwn.tar.gz pppwn${{ matrix.ext }}
 
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
           name: "${{ matrix.target }}${{ matrix.name}}"
           path: build/pppwn.tar.gz
-
-  build-windows:
-    name: "${{ matrix.arch }}-windows-gnu(win7)"
-    runs-on: windows-2019
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { arch: x86_64, msystem: MINGW64 }
-          - { arch: x86, msystem: MINGW32 }
-    env:
-      MSYSTEM: ${{ matrix.msystem }}
-      MSYS2_PATH_TYPE: inherit
-    defaults:
-      run:
-        shell: C:\shells\msys2bash.cmd {0}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependency
-        run: |
-          pacman -S --needed --noconfirm --noprogressbar \
-            ${MINGW_PACKAGE_PREFIX}-gcc \
-            ${MINGW_PACKAGE_PREFIX}-ninja unzip upx
-          wget https://npcap.com/dist/npcap-sdk-1.13.zip -O npcap-sdk.zip
-          unzip npcap-sdk.zip -d sdk
-
-      - name: Build
-        run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=MinSizeRel -DPCAP_ROOT=`pwd`/sdk
-          cmake --build build -t pppwn
-          strip build/pppwn.exe
-          upx --lzma build/pppwn.exe
-
-      - name: Upload dist
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.arch }}-windows-gnu(win7)
-          path:  build/pppwn.exe
